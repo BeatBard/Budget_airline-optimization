@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { 
   Brain,
   TrendingUp, 
@@ -7,7 +8,9 @@ import {
   Zap,
   BarChart3,
   ArrowRight,
-  Info
+  Info,
+  Calendar,
+  CalendarDays
 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart, Line, Area, Cell } from 'recharts'
 import { formatCurrency } from '@/lib/utils'
@@ -19,7 +22,66 @@ interface DiagnosticAnalyticsProps {
   onTimeRangeChange: (range: string) => void
 }
 
-export default function DiagnosticAnalytics({ selectedRoute, timeRange }: DiagnosticAnalyticsProps) {
+export default function DiagnosticAnalytics({ selectedRoute, timeRange, onTimeRangeChange }: DiagnosticAnalyticsProps) {
+  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [customStartDate, setCustomStartDate] = useState('')
+  const [customEndDate, setCustomEndDate] = useState('')
+  const [isCustomRange, setIsCustomRange] = useState(false)
+
+  // Helper functions for date handling
+  const formatDateForInput = (date: Date) => {
+    return date.toISOString().split('T')[0]
+  }
+
+  const getPresetDates = (preset: string) => {
+    const end = new Date()
+    const start = new Date()
+    
+    switch (preset) {
+      case 'last_month':
+        start.setMonth(start.getMonth() - 1)
+        break
+      case 'last_quarter':
+        start.setMonth(start.getMonth() - 3)
+        break
+      case 'last_year':
+        start.setFullYear(start.getFullYear() - 1)
+        break
+      case 'ytd':
+        start.setMonth(0)
+        start.setDate(1)
+        break
+      default:
+        start.setMonth(start.getMonth() - 3)
+    }
+    
+    return {
+      start: formatDateForInput(start),
+      end: formatDateForInput(end)
+    }
+  }
+
+  const handlePresetSelect = (preset: string) => {
+    setIsCustomRange(false)
+    onTimeRangeChange(preset)
+    setShowDatePicker(false)
+  }
+
+  const handleCustomDateApply = () => {
+    if (customStartDate && customEndDate) {
+      setIsCustomRange(true)
+      onTimeRangeChange('custom')
+      setShowDatePicker(false)
+    }
+  }
+
+  const getDisplayDateRange = () => {
+    if (isCustomRange && customStartDate && customEndDate) {
+      return `${new Date(customStartDate).toLocaleDateString()} - ${new Date(customEndDate).toLocaleDateString()}`
+    }
+    const dates = getPresetDates(timeRange)
+    return `${new Date(dates.start).toLocaleDateString()} - ${new Date(dates.end).toLocaleDateString()}`
+  }
   // Feature importance data (simulated explainable AI output)
   const getFeatureImportance = (routeId: string) => {
     const features = {
@@ -108,6 +170,134 @@ export default function DiagnosticAnalytics({ selectedRoute, timeRange }: Diagno
 
   return (
     <div className="space-y-6">
+      {/* Enhanced Date Period Selector */}
+      <div className="bg-slate-800 rounded-lg p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-white">Select Analysis Period</h3>
+          <div className="flex items-center space-x-3">
+            <div className="text-sm text-slate-400">Current Range:</div>
+            <div className="text-white font-medium bg-slate-700 px-3 py-1 rounded">
+              {getDisplayDateRange()}
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Presets */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+          {[
+            { value: 'last_month', label: 'Last Month', desc: '30 days', icon: '🔍' },
+            { value: 'last_quarter', label: 'Last Quarter', desc: '3 months', icon: '🧠' },
+            { value: 'last_year', label: 'Last Year', desc: '12 months', icon: '📊' },
+            { value: 'ytd', label: 'Year to Date', desc: 'Jan - Now', icon: '🎯' }
+          ].map((period) => (
+            <button
+              key={period.value}
+              onClick={() => handlePresetSelect(period.value)}
+              className={`p-3 rounded-lg text-left transition-all ${
+                timeRange === period.value && !isCustomRange
+                  ? 'bg-purple-600 text-white border-2 border-purple-400 shadow-lg'
+                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600 border-2 border-transparent hover:border-slate-500'
+              }`}
+            >
+              <div className="flex items-center space-x-2 mb-1">
+                <span className="text-lg">{period.icon}</span>
+                <div className="font-medium">{period.label}</div>
+              </div>
+              <div className="text-sm opacity-75">{period.desc}</div>
+            </button>
+          ))}
+        </div>
+
+        {/* Custom Date Range */}
+        <div className="border-t border-slate-700 pt-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <CalendarDays className="w-5 h-5 text-purple-400" />
+              <span className="text-white font-medium">Custom Date Range</span>
+            </div>
+            <button
+              onClick={() => setShowDatePicker(!showDatePicker)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                isCustomRange || showDatePicker
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+              }`}
+            >
+              <div className="flex items-center space-x-2">
+                <Calendar className="w-4 h-4" />
+                <span>{showDatePicker ? 'Close' : 'Select Dates'}</span>
+              </div>
+            </button>
+          </div>
+
+          {/* Date Picker Interface */}
+          {showDatePicker && (
+            <div className="mt-4 bg-slate-700 rounded-lg p-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    max={formatDateForInput(new Date())}
+                    className="w-full bg-slate-600 text-white border border-slate-500 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    min={customStartDate}
+                    max={formatDateForInput(new Date())}
+                    className="w-full bg-slate-600 text-white border border-slate-500 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-between mt-4">
+                <div className="text-sm text-slate-400">
+                  {customStartDate && customEndDate && (
+                    <span>
+                      Selected: {Math.ceil((new Date(customEndDate).getTime() - new Date(customStartDate).getTime()) / (1000 * 60 * 60 * 24))} days
+                    </span>
+                  )}
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => {
+                      setShowDatePicker(false)
+                      setCustomStartDate('')
+                      setCustomEndDate('')
+                    }}
+                    className="px-3 py-1 text-sm bg-slate-600 text-slate-300 rounded hover:bg-slate-500 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleCustomDateApply}
+                    disabled={!customStartDate || !customEndDate}
+                    className={`px-4 py-1 text-sm rounded font-medium transition-colors ${
+                      customStartDate && customEndDate
+                        ? 'bg-purple-600 text-white hover:bg-purple-700'
+                        : 'bg-slate-600 text-slate-500 cursor-not-allowed'
+                    }`}
+                  >
+                    Apply Range
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* AI Explanation Header */}
       <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4">
         <div className="flex items-center space-x-3 mb-2">
