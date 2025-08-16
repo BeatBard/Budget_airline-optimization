@@ -22,13 +22,9 @@ interface PredictiveAnalyticsProps {
 
 export default function PredictiveAnalytics({ selectedRoute, timeRange, onTimeRangeChange }: PredictiveAnalyticsProps) {
   const [forecastPeriod, setForecastPeriod] = useState('next_3_months')
-  const [showHistoricalDatePicker, setShowHistoricalDatePicker] = useState(false)
   const [showForecastDatePicker, setShowForecastDatePicker] = useState(false)
-  const [customStartDate, setCustomStartDate] = useState('')
-  const [customEndDate, setCustomEndDate] = useState('')
   const [customForecastStart, setCustomForecastStart] = useState('')
   const [customForecastEnd, setCustomForecastEnd] = useState('')
-  const [isCustomRange, setIsCustomRange] = useState(false)
   const [isCustomForecast, setIsCustomForecast] = useState(false)
 
   // Helper functions for date handling
@@ -36,47 +32,7 @@ export default function PredictiveAnalytics({ selectedRoute, timeRange, onTimeRa
     return date.toISOString().split('T')[0]
   }
 
-  const getPresetDates = (preset: string) => {
-    const end = new Date()
-    const start = new Date()
-    
-    switch (preset) {
-      case 'last_month':
-        start.setMonth(start.getMonth() - 1)
-        break
-      case 'last_quarter':
-        start.setMonth(start.getMonth() - 3)
-        break
-      case 'last_year':
-        start.setFullYear(start.getFullYear() - 1)
-        break
-      case 'ytd':
-        start.setMonth(0)
-        start.setDate(1)
-        break
-      default:
-        start.setMonth(start.getMonth() - 3)
-    }
-    
-    return {
-      start: formatDateForInput(start),
-      end: formatDateForInput(end)
-    }
-  }
 
-  const handlePresetSelect = (preset: string) => {
-    setIsCustomRange(false)
-    onTimeRangeChange(preset)
-    setShowHistoricalDatePicker(false)
-  }
-
-  const handleCustomDateApply = () => {
-    if (customStartDate && customEndDate) {
-      setIsCustomRange(true)
-      onTimeRangeChange('custom')
-      setShowHistoricalDatePicker(false)
-    }
-  }
 
   const handleForecastPresetSelect = (preset: string) => {
     setIsCustomForecast(false)
@@ -117,14 +73,6 @@ export default function PredictiveAnalytics({ selectedRoute, timeRange, onTimeRa
     }
     
     return `${today.toLocaleDateString()} - ${end.toLocaleDateString()}`
-  }
-
-  const getDisplayDateRange = () => {
-    if (isCustomRange && customStartDate && customEndDate) {
-      return `${new Date(customStartDate).toLocaleDateString()} - ${new Date(customEndDate).toLocaleDateString()}`
-    }
-    const dates = getPresetDates(timeRange)
-    return `${new Date(dates.start).toLocaleDateString()} - ${new Date(dates.end).toLocaleDateString()}`
   }
   // Generate demand forecast based on selected period (weekly data)
   const generateDemandForecast = (routeId: string, period: string) => {
@@ -265,134 +213,6 @@ export default function PredictiveAnalytics({ selectedRoute, timeRange, onTimeRa
 
   return (
     <div className="space-y-6">
-      {/* Historical Data Range Selector */}
-      <div className="bg-slate-800 rounded-lg p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-white">Historical Data for Model Training</h3>
-          <div className="flex items-center space-x-3">
-            <div className="text-sm text-slate-400">Training Period:</div>
-            <div className="text-white font-medium bg-slate-700 px-3 py-1 rounded">
-              {getDisplayDateRange()}
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Presets */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-          {[
-            { value: 'last_month', label: 'Last Month', desc: '30 days', icon: '📈' },
-            { value: 'last_quarter', label: 'Last Quarter', desc: '3 months', icon: '🔮' },
-            { value: 'last_year', label: 'Last Year', desc: '12 months', icon: '🎯' },
-            { value: 'ytd', label: 'Year to Date', desc: 'Jan - Now', icon: '📊' }
-          ].map((period) => (
-            <button
-              key={period.value}
-              onClick={() => handlePresetSelect(period.value)}
-              className={`p-3 rounded-lg text-left transition-all ${
-                timeRange === period.value && !isCustomRange
-                  ? 'bg-green-600 text-white border-2 border-green-400 shadow-lg'
-                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600 border-2 border-transparent hover:border-slate-500'
-              }`}
-            >
-              <div className="flex items-center space-x-2 mb-1">
-                <span className="text-lg">{period.icon}</span>
-                <div className="font-medium">{period.label}</div>
-              </div>
-              <div className="text-sm opacity-75">{period.desc}</div>
-            </button>
-          ))}
-        </div>
-
-        {/* Custom Date Range */}
-        <div className="border-t border-slate-700 pt-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <CalendarDays className="w-5 h-5 text-green-400" />
-              <span className="text-white font-medium">Custom Training Period</span>
-            </div>
-            <button
-              onClick={() => setShowHistoricalDatePicker(!showHistoricalDatePicker)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                isCustomRange || showHistoricalDatePicker
-                  ? 'bg-green-600 text-white'
-                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-              }`}
-            >
-              <div className="flex items-center space-x-2">
-                <Calendar className="w-4 h-4" />
-                <span>{showHistoricalDatePicker ? 'Close' : 'Select Period'}</span>
-              </div>
-            </button>
-          </div>
-
-          {/* Historical Date Picker Interface */}
-          {showHistoricalDatePicker && (
-            <div className="mt-4 bg-slate-700 rounded-lg p-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Training Start Date
-                  </label>
-                  <input
-                    type="date"
-                    value={customStartDate}
-                    onChange={(e) => setCustomStartDate(e.target.value)}
-                    max={formatDateForInput(new Date())}
-                    className="w-full bg-slate-600 text-white border border-slate-500 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Training End Date
-                  </label>
-                  <input
-                    type="date"
-                    value={customEndDate}
-                    onChange={(e) => setCustomEndDate(e.target.value)}
-                    min={customStartDate}
-                    max={formatDateForInput(new Date())}
-                    className="w-full bg-slate-600 text-white border border-slate-500 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between mt-4">
-                <div className="text-sm text-slate-400">
-                  {customStartDate && customEndDate && (
-                    <span>
-                      Training Data: {Math.ceil((new Date(customEndDate).getTime() - new Date(customStartDate).getTime()) / (1000 * 60 * 60 * 24))} days
-                    </span>
-                  )}
-                </div>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => {
-                      setShowHistoricalDatePicker(false)
-                      setCustomStartDate('')
-                      setCustomEndDate('')
-                    }}
-                    className="px-3 py-1 text-sm bg-slate-600 text-slate-300 rounded hover:bg-slate-500 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleCustomDateApply}
-                    disabled={!customStartDate || !customEndDate}
-                    className={`px-4 py-1 text-sm rounded font-medium transition-colors ${
-                      customStartDate && customEndDate
-                        ? 'bg-green-600 text-white hover:bg-green-700'
-                        : 'bg-slate-600 text-slate-500 cursor-not-allowed'
-                    }`}
-                  >
-                    Apply Period
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* Forecast Period Selector */}
       <div className="bg-slate-800 rounded-lg p-6">
         <div className="flex items-center justify-between mb-4">
@@ -524,31 +344,7 @@ export default function PredictiveAnalytics({ selectedRoute, timeRange, onTimeRa
         </div>
       </div>
 
-      {/* ML Model Info */}
-      <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
-        <div className="flex items-center space-x-3 mb-2">
-          <Brain className="w-6 h-6 text-green-400" />
-          <h3 className="text-lg font-semibold text-white">ML Forecasting Model</h3>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-          <div>
-            <span className="text-slate-400">Model Type:</span>
-            <p className="text-white font-medium">{modelMetrics.modelType}</p>
-          </div>
-          <div>
-            <span className="text-slate-400">Accuracy:</span>
-            <p className="text-green-400 font-medium">{modelMetrics.accuracy}%</p>
-          </div>
-          <div>
-            <span className="text-slate-400">R² Score:</span>
-            <p className="text-green-400 font-medium">{modelMetrics.r2Score}</p>
-          </div>
-          <div>
-            <span className="text-slate-400">MAPE:</span>
-            <p className="text-green-400 font-medium">{modelMetrics.mape}%</p>
-          </div>
-        </div>
-      </div>
+
 
       {/* Forecast Summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -733,10 +529,7 @@ export default function PredictiveAnalytics({ selectedRoute, timeRange, onTimeRa
             </div>
             <p className="text-green-100">Demand Index</p>
           </div>
-          <div>
-            <div className="text-3xl font-bold text-white mb-2">{modelMetrics.accuracy}%</div>
-            <p className="text-green-100">Model Accuracy</p>
-          </div>
+
           <div>
             <div className={`text-3xl font-bold mb-2 ${
               riskAssessment.riskScore <= 30 ? 'text-green-200' :

@@ -86,16 +86,29 @@ export default function DiagnosticAnalytics({ selectedRoute, timeRange, onTimeRa
   const getFeatureImportance = (routeId: string) => {
     const features = {
       'LON-PAR': [
-        { feature: 'Load Factor', importance: 0.35, impact: 'positive', value: '78%', explanation: 'High load factor drives profitability' },
+        { feature: 'Load Factor', importance: 0.32, impact: 'positive', value: '78%', explanation: 'High passenger occupancy drives revenue' },
         { feature: 'Average Fare', importance: 0.28, impact: 'positive', value: '$165', explanation: 'Premium pricing on business route' },
-        { feature: 'Fuel Costs', importance: 0.22, impact: 'negative', value: '$45K/flight', explanation: 'Major cost component impacting margin' },
-        { feature: 'Competition', importance: 0.15, impact: 'negative', value: '3 competitors', explanation: 'Price pressure from competitors' }
+        { feature: 'Fuel Costs', importance: 0.18, impact: 'negative', value: '$45K/flight', explanation: 'Major operational cost component' },
+        { feature: 'Business Travel %', importance: 0.15, impact: 'positive', value: '65%', explanation: 'High-value corporate passengers' },
+        { feature: 'Competition Level', importance: 0.12, impact: 'negative', value: '3 airlines', explanation: 'Market saturation affects pricing' },
+        { feature: 'Airport Fees', importance: 0.09, impact: 'negative', value: '$8.5K', explanation: 'High landing costs at premium airports' },
+        { feature: 'Flight Frequency', importance: 0.08, impact: 'positive', value: '6 daily', explanation: 'High frequency attracts business travelers' }
       ],
       'BRS-PRG': [
-        { feature: 'Load Factor', importance: 0.42, impact: 'negative', value: '45%', explanation: 'Low demand driving losses' },
-        { feature: 'Route Length', importance: 0.25, impact: 'negative', value: '1,318km', explanation: 'High fuel costs for distance' },
-        { feature: 'Aircraft Size', importance: 0.20, impact: 'negative', value: '150 seats', explanation: 'Fixed costs spread over fewer passengers' },
-        { feature: 'Seasonality', importance: 0.13, impact: 'negative', value: 'High variance', explanation: 'Inconsistent demand patterns' }
+        { feature: 'Load Factor', importance: 0.35, impact: 'negative', value: '45%', explanation: 'Low passenger demand drives losses' },
+        { feature: 'Seasonal Demand', importance: 0.22, impact: 'negative', value: '40% variance', explanation: 'Tourist route with high seasonality' },
+        { feature: 'Route Distance', importance: 0.18, impact: 'negative', value: '1,318km', explanation: 'Long haul increases fuel consumption' },
+        { feature: 'Aircraft Utilization', importance: 0.15, impact: 'negative', value: '8.2 hrs/day', explanation: 'Low aircraft efficiency' },
+        { feature: 'Dynamic Pricing', importance: 0.12, impact: 'positive', value: 'Active', explanation: 'Revenue management optimization' },
+        { feature: 'Crew Costs', importance: 0.10, impact: 'negative', value: '$12K/flight', explanation: 'High labor costs for route length' },
+        { feature: 'Ancillary Revenue', importance: 0.08, impact: 'positive', value: '$28/pax', explanation: 'Additional revenue streams' }
+      ],
+      'NYC-MIA': [
+        { feature: 'Load Factor', importance: 0.30, impact: 'positive', value: '82%', explanation: 'Strong domestic business demand' },
+        { feature: 'Premium Class Mix', importance: 0.25, impact: 'positive', value: '35%', explanation: 'High first/business class utilization' },
+        { feature: 'Hub Operations', importance: 0.20, impact: 'positive', value: 'Both hubs', explanation: 'Connecting traffic boosts demand' },
+        { feature: 'Weather Delays', importance: 0.15, impact: 'negative', value: '12%', explanation: 'Operational disruptions increase costs' },
+        { feature: 'Slot Restrictions', importance: 0.10, impact: 'negative', value: 'Peak hours', explanation: 'Limited growth opportunities' }
       ]
     }
     return features[routeId as keyof typeof features] || features['LON-PAR']
@@ -298,92 +311,80 @@ export default function DiagnosticAnalytics({ selectedRoute, timeRange, onTimeRa
         </div>
       </div>
 
-      {/* AI Explanation Header */}
-      <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4">
-        <div className="flex items-center space-x-3 mb-2">
-          <Brain className="w-6 h-6 text-purple-400" />
-          <h3 className="text-lg font-semibold text-white">AI-Powered Root Cause Analysis</h3>
+
+
+      {/* Feature Importance Analysis */}
+      <div className="metric-card">
+        <h3 className="text-lg font-semibold text-white mb-4">Feature Importance Analysis</h3>
+        <div className="space-y-4">
+          {featureImportance.map((item, index) => (
+            <div key={index} className="bg-slate-700 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-medium text-white">{item.feature}</span>
+                <span className={`text-sm font-medium ${
+                  item.impact === 'positive' ? 'text-green-400' : 'text-red-400'
+                }`}>
+                  {(item.importance * 100).toFixed(0)}% impact
+                </span>
+              </div>
+              <div className="w-full bg-slate-600 rounded-full h-2 mb-2">
+                <div 
+                  className={`h-2 rounded-full ${
+                    item.impact === 'positive' ? 'bg-green-500' : 'bg-red-500'
+                  }`}
+                  style={{ width: `${item.importance * 100}%` }}
+                />
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-400">{item.value}</span>
+                <span className="text-slate-300">{item.explanation}</span>
+              </div>
+            </div>
+          ))}
         </div>
-        <p className="text-slate-300 text-sm">
-          Explainable AI has analyzed {selectedRoute} performance to identify the key drivers of {selectedRoute === 'BRS-PRG' ? 'losses' : 'profitability'}
-        </p>
       </div>
 
-      {/* Feature Importance */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="metric-card">
-          <h3 className="text-lg font-semibold text-white mb-4">Feature Importance Analysis</h3>
-          <div className="space-y-4">
-            {featureImportance.map((item, index) => (
-              <div key={index} className="bg-slate-700 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium text-white">{item.feature}</span>
-                  <span className={`text-sm font-medium ${
-                    item.impact === 'positive' ? 'text-green-400' : 'text-red-400'
-                  }`}>
-                    {(item.importance * 100).toFixed(0)}% impact
+      {/* Feature Impact Visualization */}
+      <div className="metric-card">
+        <h3 className="text-lg font-semibold text-white mb-4">Feature Impact Visualization</h3>
+        <div className="space-y-3">
+          {featureImportance.map((item, index) => (
+            <div key={index} className="flex items-center space-x-4">
+              <div className="w-32 text-sm text-slate-300 text-right">
+                {item.feature}
+              </div>
+              <div className="flex-1 bg-slate-700 rounded-lg h-8 relative overflow-hidden">
+                <div 
+                  className={`h-full rounded-lg transition-all duration-500 ${
+                    item.impact === 'positive' ? 'bg-green-500' : 'bg-red-500'
+                  }`}
+                  style={{ width: `${(item.importance * 100)}%` }}
+                />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-white text-xs font-medium">
+                    {(item.importance * 100).toFixed(1)}%
                   </span>
                 </div>
-                <div className="w-full bg-slate-600 rounded-full h-2 mb-2">
-                  <div 
-                    className={`h-2 rounded-full ${
-                      item.impact === 'positive' ? 'bg-green-500' : 'bg-red-500'
-                    }`}
-                    style={{ width: `${item.importance * 100}%` }}
-                  />
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-400">{item.value}</span>
-                  <span className="text-slate-300">{item.explanation}</span>
-                </div>
               </div>
-            ))}
-          </div>
+              <div className={`text-xs font-medium ${
+                item.impact === 'positive' ? 'text-green-400' : 'text-red-400'
+              }`}>
+                {item.impact === 'positive' ? '+' : '-'} Impact
+              </div>
+            </div>
+          ))}
         </div>
-
-        <div className="metric-card">
-          <h3 className="text-lg font-semibold text-white mb-4">Feature Impact Visualization</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={featureImportance} layout="horizontal" margin={{ top: 5, right: 30, left: 100, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
-              <XAxis 
-                type="number" 
-                stroke="#e2e8f0" 
-                tickFormatter={(value) => `${(value * 100).toFixed(0)}%`}
-                domain={[0, 0.5]}
-                fontSize={12}
-              />
-              <YAxis 
-                dataKey="feature" 
-                type="category" 
-                stroke="#e2e8f0" 
-                width={120}
-                fontSize={12}
-                fill="#e2e8f0"
-              />
-              <Tooltip 
-                formatter={(value) => [`${(value as number * 100).toFixed(1)}%`, 'Impact']}
-                labelStyle={{ color: '#f1f5f9', fontWeight: 'bold' }}
-                contentStyle={{ 
-                  backgroundColor: '#1e293b', 
-                  border: '2px solid #475569',
-                  borderRadius: '8px',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
-                }}
-              />
-              <Bar 
-                dataKey="importance" 
-                radius={[0, 4, 4, 0]}
-              >
-                {featureImportance.map((entry, index) => (
-                  <Cell 
-                    key={`cell-${index}`} 
-                    fill={entry.impact === 'positive' ? '#22c55e' : '#ef4444'}
-                  />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+        
+        {/* Color Legend */}
+        <div className="flex items-center justify-center space-x-6 mt-4 pt-4 border-t border-slate-700">
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 bg-green-500 rounded"></div>
+            <span className="text-sm text-slate-300">Positive Impact</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 bg-red-500 rounded"></div>
+            <span className="text-sm text-slate-300">Negative Impact</span>
+          </div>
         </div>
       </div>
 
