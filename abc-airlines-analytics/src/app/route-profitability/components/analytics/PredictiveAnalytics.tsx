@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { 
   TrendingUp, 
   Brain,
@@ -18,9 +19,11 @@ interface PredictiveAnalyticsProps {
   onTimeRangeChange: (range: string) => void
 }
 
-export default function PredictiveAnalytics({ selectedRoute, timeRange }: PredictiveAnalyticsProps) {
-  // Generate ML forecast data for the next 90 days
-  const generateForecast = (routeId: string) => {
+export default function PredictiveAnalytics({ selectedRoute, timeRange, onTimeRangeChange }: PredictiveAnalyticsProps) {
+  const [forecastPeriod, setForecastPeriod] = useState('next_3_months')
+  // Generate demand forecast based on selected period
+  const generateDemandForecast = (routeId: string, period: string) => {
+    const days = period === 'next_month' ? 30 : period === 'next_3_months' ? 90 : period === 'next_6_months' ? 180 : 365;
     const baseMetrics = {
       'LON-PAR': { passengers: 3500, revenue: 210000, loadFactor: 78 },
       'LON-NYC': { passengers: 3200, revenue: 580000, loadFactor: 82 },
@@ -31,7 +34,7 @@ export default function PredictiveAnalytics({ selectedRoute, timeRange }: Predic
     const base = baseMetrics[routeId as keyof typeof baseMetrics] || baseMetrics['LON-PAR']
     const forecast = []
     
-    for (let i = 1; i <= 90; i++) {
+    for (let i = 1; i <= days; i++) {
       const date = new Date()
       date.setDate(date.getDate() + i)
       
@@ -47,25 +50,25 @@ export default function PredictiveAnalytics({ selectedRoute, timeRange }: Predic
       // Random variation
       const randomFactor = 0.85 + Math.random() * 0.3
       
-      const factor = seasonalFactor * Math.pow(trendFactor, i / 90) * randomFactor
+      const factor = seasonalFactor * Math.pow(trendFactor, i / days) * randomFactor
       
       const passengers = Math.round(base.passengers * factor)
-      const revenue = Math.round(base.revenue * factor)
+      const demandIndex = Math.round(factor * 100) // Demand as index
       const loadFactor = Math.min(95, Math.max(30, Math.round(base.loadFactor * factor)))
       
       // Confidence bands (wider for further dates)
-      const confidenceWidth = Math.min(0.3, 0.1 + (i / 90) * 0.2)
+      const confidenceWidth = Math.min(0.3, 0.1 + (i / days) * 0.2)
       
       forecast.push({
         date: date.toISOString().split('T')[0],
         day: i,
         passengers,
-        revenue,
+        demandIndex,
         loadFactor,
         passengersLower: Math.round(passengers * (1 - confidenceWidth)),
         passengersUpper: Math.round(passengers * (1 + confidenceWidth)),
-        revenueLower: Math.round(revenue * (1 - confidenceWidth)),
-        revenueUpper: Math.round(revenue * (1 + confidenceWidth)),
+        demandLower: Math.round(demandIndex * (1 - confidenceWidth)),
+        demandUpper: Math.round(demandIndex * (1 + confidenceWidth)),
         profitProbability: routeId === 'BRS-PRG' ? Math.max(10, 80 - i) : Math.min(95, 85 + Math.random() * 10)
       })
     }
@@ -123,38 +126,69 @@ export default function PredictiveAnalytics({ selectedRoute, timeRange }: Predic
     ]
   }
 
-  const forecast = generateForecast(selectedRoute)
+  const forecast = generateDemandForecast(selectedRoute, forecastPeriod)
   const riskAssessment = getRiskAssessment(selectedRoute)
   const modelMetrics = getModelMetrics(selectedRoute)
   const eventImpacts = getEventImpacts()
 
-  // Aggregate forecast for the next 30/60/90 days
-  const aggregatedForecast = [
-    {
-      period: 'Next 30 Days',
-      passengers: Math.round(forecast.slice(0, 30).reduce((sum, d) => sum + d.passengers, 0)),
-      revenue: Math.round(forecast.slice(0, 30).reduce((sum, d) => sum + d.revenue, 0)),
-      avgLoadFactor: Math.round(forecast.slice(0, 30).reduce((sum, d) => sum + d.loadFactor, 0) / 30),
-      confidence: 92
-    },
-    {
-      period: 'Next 60 Days',
-      passengers: Math.round(forecast.slice(0, 60).reduce((sum, d) => sum + d.passengers, 0)),
-      revenue: Math.round(forecast.slice(0, 60).reduce((sum, d) => sum + d.revenue, 0)),
-      avgLoadFactor: Math.round(forecast.slice(0, 60).reduce((sum, d) => sum + d.loadFactor, 0) / 60),
-      confidence: 85
-    },
-    {
-      period: 'Next 90 Days',
-      passengers: Math.round(forecast.slice(0, 90).reduce((sum, d) => sum + d.passengers, 0)),
-      revenue: Math.round(forecast.slice(0, 90).reduce((sum, d) => sum + d.revenue, 0)),
-      avgLoadFactor: Math.round(forecast.slice(0, 90).reduce((sum, d) => sum + d.loadFactor, 0) / 90),
-      confidence: 78
-    }
-  ]
+  // Aggregate forecast based on selected period
+  const getAggregatedForecast = (forecastData: any[], period: string) => {
+    const totalDays = forecastData.length
+    const chunks = period === 'next_month' ? [30] : 
+                  period === 'next_3_months' ? [30, 60, 90] :
+                  period === 'next_6_months' ? [60, 120, 180] : [90, 180, 270, 365]
+    
+    return chunks.map((days, index) => {
+      const data = forecastData.slice(0, days)
+      const chunkLabel = period === 'next_month' ? 'Next 30 Days' :
+                        period === 'next_3_months' ? `Next ${days} Days` :
+                        period === 'next_6_months' ? `Next ${Math.round(days/30)} Months` :
+                        `Next ${Math.round(days/30)} Months`
+      
+      return {
+        period: chunkLabel,
+        passengers: Math.round(data.reduce((sum, d) => sum + d.passengers, 0)),
+        demandIndex: Math.round(data.reduce((sum, d) => sum + d.demandIndex, 0) / data.length),
+        avgLoadFactor: Math.round(data.reduce((sum, d) => sum + d.loadFactor, 0) / data.length),
+        confidence: Math.max(75, 95 - (days / totalDays) * 20)
+      }
+    })
+  }
+
+  const aggregatedForecast = getAggregatedForecast(forecast, forecastPeriod)
 
   return (
     <div className="space-y-6">
+      {/* Forecast Period Selector */}
+      <div className="bg-slate-800 rounded-lg p-4">
+        <h3 className="text-lg font-semibold text-white mb-4">Select Forecast Timeline</h3>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          {[
+            { value: 'next_month', label: 'Next Month', desc: '30 days ahead' },
+            { value: 'next_3_months', label: 'Next 3 Months', desc: '90 days ahead' },
+            { value: 'next_6_months', label: 'Next 6 Months', desc: '180 days ahead' },
+            { value: 'next_year', label: 'Next Year', desc: '365 days ahead' }
+          ].map((period) => (
+            <button
+              key={period.value}
+              onClick={() => setForecastPeriod(period.value)}
+              className={`p-3 rounded-lg text-left transition-all ${
+                forecastPeriod === period.value
+                  ? 'bg-green-600 text-white border-2 border-green-400'
+                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600 border-2 border-transparent'
+              }`}
+            >
+              <div className="font-medium">{period.label}</div>
+              <div className="text-sm opacity-75">{period.desc}</div>
+            </button>
+          ))}
+        </div>
+        <div className="mt-4 text-center">
+          <span className="text-slate-400 text-sm">Baseline Date: </span>
+          <span className="text-white font-medium">{new Date().toLocaleDateString()}</span>
+        </div>
+      </div>
+
       {/* ML Model Info */}
       <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
         <div className="flex items-center space-x-3 mb-2">
@@ -192,8 +226,8 @@ export default function PredictiveAnalytics({ selectedRoute, timeRange }: Predic
                 <span className="text-white font-medium">{period.passengers.toLocaleString()}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Revenue:</span>
-                <span className="text-white font-medium">{formatCurrency(period.revenue)}</span>
+                <span className="text-slate-400">Demand Index:</span>
+                <span className="text-white font-medium">{period.demandIndex}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Avg Load Factor:</span>
@@ -254,24 +288,24 @@ export default function PredictiveAnalytics({ selectedRoute, timeRange }: Predic
         </div>
 
         <div className="metric-card">
-          <h3 className="text-lg font-semibold text-white mb-4">Revenue Forecast</h3>
+          <h3 className="text-lg font-semibold text-white mb-4">Demand Index Forecast</h3>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={forecast.filter((_, i) => i % 7 === 0)}> {/* Show weekly points */}
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
               <XAxis dataKey="day" stroke="#94a3b8" />
-              <YAxis stroke="#94a3b8" tickFormatter={(value) => `$${value/1000}K`} />
+              <YAxis stroke="#94a3b8" />
               <Tooltip 
                 formatter={(value, name) => [
-                  formatCurrency(value as number),
-                  name === 'revenue' ? 'Forecast' : 
-                  name === 'revenueUpper' ? 'Upper Bound' : 'Lower Bound'
+                  value,
+                  name === 'demandIndex' ? 'Demand Index' : 
+                  name === 'demandUpper' ? 'Upper Bound' : 'Lower Bound'
                 ]}
                 labelStyle={{ color: '#f1f5f9' }}
                 contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}
               />
-              <Line type="monotone" dataKey="revenueLower" stroke="#64748b" strokeDasharray="5 5" strokeWidth={1} />
-              <Line type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} />
-              <Line type="monotone" dataKey="revenueUpper" stroke="#64748b" strokeDasharray="5 5" strokeWidth={1} />
+              <Line type="monotone" dataKey="demandLower" stroke="#64748b" strokeDasharray="5 5" strokeWidth={1} />
+              <Line type="monotone" dataKey="demandIndex" stroke="#10b981" strokeWidth={2} />
+              <Line type="monotone" dataKey="demandUpper" stroke="#64748b" strokeDasharray="5 5" strokeWidth={1} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -348,19 +382,19 @@ export default function PredictiveAnalytics({ selectedRoute, timeRange }: Predic
 
       {/* Predictive Summary */}
       <div className="bg-gradient-to-r from-green-600 to-green-800 rounded-lg p-6">
-        <h3 className="text-xl font-semibold text-white mb-4">90-Day Forecast Summary</h3>
+        <h3 className="text-xl font-semibold text-white mb-4">Demand Forecast Summary</h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-center">
           <div>
             <div className="text-3xl font-bold text-white mb-2">
-              {aggregatedForecast[2].passengers.toLocaleString()}
+              {aggregatedForecast[aggregatedForecast.length - 1]?.passengers.toLocaleString() || 'N/A'}
             </div>
             <p className="text-green-100">Predicted Passengers</p>
           </div>
           <div>
             <div className="text-3xl font-bold text-white mb-2">
-              {formatCurrency(aggregatedForecast[2].revenue)}
+              {aggregatedForecast[aggregatedForecast.length - 1]?.demandIndex || 'N/A'}
             </div>
-            <p className="text-green-100">Predicted Revenue</p>
+            <p className="text-green-100">Demand Index</p>
           </div>
           <div>
             <div className="text-3xl font-bold text-white mb-2">{modelMetrics.accuracy}%</div>

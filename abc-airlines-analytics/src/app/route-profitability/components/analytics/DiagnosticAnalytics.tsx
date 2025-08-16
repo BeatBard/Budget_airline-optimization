@@ -9,7 +9,7 @@ import {
   ArrowRight,
   Info
 } from 'lucide-react'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart, Line, Area } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart, Line, Area, Cell } from 'recharts'
 import { formatCurrency } from '@/lib/utils'
 
 interface DiagnosticAnalyticsProps {
@@ -154,19 +154,44 @@ export default function DiagnosticAnalytics({ selectedRoute, timeRange }: Diagno
         <div className="metric-card">
           <h3 className="text-lg font-semibold text-white mb-4">Feature Impact Visualization</h3>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={featureImportance} layout="horizontal">
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-              <XAxis type="number" stroke="#94a3b8" tickFormatter={(value) => `${(value * 100).toFixed(0)}%`} />
-              <YAxis dataKey="feature" type="category" stroke="#94a3b8" width={100} />
+            <BarChart data={featureImportance} layout="horizontal" margin={{ top: 5, right: 30, left: 100, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
+              <XAxis 
+                type="number" 
+                stroke="#e2e8f0" 
+                tickFormatter={(value) => `${(value * 100).toFixed(0)}%`}
+                domain={[0, 0.5]}
+                fontSize={12}
+              />
+              <YAxis 
+                dataKey="feature" 
+                type="category" 
+                stroke="#e2e8f0" 
+                width={120}
+                fontSize={12}
+                fill="#e2e8f0"
+              />
               <Tooltip 
-                formatter={(value) => [`${(value as number * 100).toFixed(1)}%`, 'Importance']}
-                labelStyle={{ color: '#f1f5f9' }}
-                contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}
+                formatter={(value) => [`${(value as number * 100).toFixed(1)}%`, 'Impact']}
+                labelStyle={{ color: '#f1f5f9', fontWeight: 'bold' }}
+                contentStyle={{ 
+                  backgroundColor: '#1e293b', 
+                  border: '2px solid #475569',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+                }}
               />
               <Bar 
                 dataKey="importance" 
-                fill={(entry) => entry.impact === 'positive' ? '#10b981' : '#ef4444'}
-              />
+                radius={[0, 4, 4, 0]}
+              >
+                {featureImportance.map((entry, index) => (
+                  <Cell 
+                    key={`cell-${index}`} 
+                    fill={entry.impact === 'positive' ? '#22c55e' : '#ef4444'}
+                  />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -175,26 +200,76 @@ export default function DiagnosticAnalytics({ selectedRoute, timeRange }: Diagno
       {/* Profit Bridge Analysis */}
       <div className="metric-card">
         <h3 className="text-lg font-semibold text-white mb-4">Profit Bridge Analysis - Change Drivers</h3>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={profitBridge}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-            <XAxis dataKey="factor" stroke="#94a3b8" angle={-45} textAnchor="end" height={80} />
-            <YAxis stroke="#94a3b8" tickFormatter={(value) => `$${value/1000}K`} />
+        <ResponsiveContainer width="100%" height={350}>
+          <BarChart data={profitBridge} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
+            <XAxis 
+              dataKey="factor" 
+              stroke="#e2e8f0" 
+              angle={-45} 
+              textAnchor="end" 
+              height={80}
+              fontSize={12}
+              fill="#e2e8f0"
+            />
+            <YAxis 
+              stroke="#e2e8f0" 
+              tickFormatter={(value) => `$${Math.abs(value)/1000}K`}
+              fontSize={12}
+              fill="#e2e8f0"
+            />
             <Tooltip 
-              formatter={(value, name) => [formatCurrency(value as number), name === 'value' ? 'Impact' : 'Cumulative']}
-              labelStyle={{ color: '#f1f5f9' }}
-              contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}
+              formatter={(value, name) => [
+                formatCurrency(value as number), 
+                name === 'value' ? 'Impact' : 'Cumulative'
+              ]}
+              labelStyle={{ color: '#f1f5f9', fontWeight: 'bold' }}
+              contentStyle={{ 
+                backgroundColor: '#1e293b', 
+                border: '2px solid #475569',
+                borderRadius: '8px',
+                boxShadow: '0 10px 25px rgba(0,0,0,0.3)'
+              }}
             />
             <Bar 
               dataKey="value" 
-              fill={(entry) => {
-                if (entry.type === 'positive') return '#10b981'
-                if (entry.type === 'negative') return '#ef4444'
-                return '#64748b'
-              }}
-            />
+              radius={[4, 4, 0, 0]}
+            >
+              {profitBridge.map((entry, index) => (
+                <Cell 
+                  key={`cell-${index}`} 
+                  fill={
+                    entry.type === 'positive' ? '#22c55e' :
+                    entry.type === 'negative' ? '#ef4444' :
+                    entry.type === 'base' ? '#3b82f6' :
+                    entry.type === 'final' ? '#8b5cf6' :
+                    '#64748b'
+                  }
+                />
+              ))}
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
+        
+        {/* Bridge Summary */}
+        <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+          <div className="flex items-center space-x-2">
+            <div className="w-4 h-4 bg-green-500 rounded"></div>
+            <span className="text-slate-300">Positive Impact</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-4 h-4 bg-red-500 rounded"></div>
+            <span className="text-slate-300">Negative Impact</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-4 h-4 bg-blue-500 rounded"></div>
+            <span className="text-slate-300">Base</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-4 h-4 bg-purple-500 rounded"></div>
+            <span className="text-slate-300">Final Result</span>
+          </div>
+        </div>
       </div>
 
       {/* Cost Waterfall */}

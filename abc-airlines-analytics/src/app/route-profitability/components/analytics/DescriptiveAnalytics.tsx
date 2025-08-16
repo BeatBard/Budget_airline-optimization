@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -5,7 +6,10 @@ import {
   Users, 
   Plane,
   Calendar,
-  Activity
+  Activity,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, AreaChart, Area } from 'recharts'
 import { formatCurrency } from '@/lib/utils'
@@ -18,34 +22,81 @@ interface DescriptiveAnalyticsProps {
 }
 
 export default function DescriptiveAnalytics({ selectedRoute, timeRange, onTimeRangeChange }: DescriptiveAnalyticsProps) {
-  // Sample historical data for the selected route
-  const getRouteData = (routeId: string) => {
+  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [customStartDate, setCustomStartDate] = useState('')
+  const [customEndDate, setCustomEndDate] = useState('')
+  const [isCustomRange, setIsCustomRange] = useState(false)
+  // Generate route data based on time period
+  const getRouteData = (routeId: string, timePeriod: string) => {
     const baseMetrics = {
       'LON-PAR': { revenue: 2500000, cost: 2050000, profit: 450000, loadFactor: 78, passengers: 42000 },
       'LON-NYC': { revenue: 6800000, cost: 5200000, profit: 1600000, loadFactor: 82, passengers: 38000 },
       'BRS-PRG': { revenue: 800000, cost: 1000000, profit: -200000, loadFactor: 45, passengers: 12000 },
       'MIA-NYC': { revenue: 5200000, cost: 4100000, profit: 1100000, loadFactor: 75, passengers: 35000 }
     }
-    return baseMetrics[routeId as keyof typeof baseMetrics] || baseMetrics['LON-PAR']
+    
+    // Adjust metrics based on time period
+    const timeMultipliers = {
+      'last_month': 0.08, // 1/12 of yearly data
+      'last_quarter': 0.25, // 1/4 of yearly data
+      'last_year': 1.0, // Full yearly data
+      'ytd': 0.75 // Assuming 9 months YTD
+    }
+    
+    const base = baseMetrics[routeId as keyof typeof baseMetrics] || baseMetrics['LON-PAR']
+    const multiplier = timeMultipliers[timePeriod as keyof typeof timeMultipliers] || 1
+    
+    return {
+      revenue: Math.round(base.revenue * multiplier),
+      cost: Math.round(base.cost * multiplier),
+      profit: Math.round(base.profit * multiplier),
+      loadFactor: base.loadFactor, // Load factor doesn't change with time period
+      passengers: Math.round(base.passengers * multiplier)
+    }
   }
 
-  const routeData = getRouteData(selectedRoute)
+  const routeData = getRouteData(selectedRoute, timeRange)
 
-  // Historical trend data
-  const trendData = [
-    { period: 'Jan', revenue: routeData.revenue * 0.85, profit: routeData.profit * 0.7, loadFactor: routeData.loadFactor * 0.9 },
-    { period: 'Feb', revenue: routeData.revenue * 0.88, profit: routeData.profit * 0.8, loadFactor: routeData.loadFactor * 0.92 },
-    { period: 'Mar', revenue: routeData.revenue * 0.95, profit: routeData.profit * 0.9, loadFactor: routeData.loadFactor * 0.95 },
-    { period: 'Apr', revenue: routeData.revenue * 1.1, profit: routeData.profit * 1.2, loadFactor: routeData.loadFactor * 1.05 },
-    { period: 'May', revenue: routeData.revenue * 1.15, profit: routeData.profit * 1.3, loadFactor: routeData.loadFactor * 1.08 },
-    { period: 'Jun', revenue: routeData.revenue * 1.2, profit: routeData.profit * 1.4, loadFactor: routeData.loadFactor * 1.12 },
-    { period: 'Jul', revenue: routeData.revenue * 1.25, profit: routeData.profit * 1.5, loadFactor: routeData.loadFactor * 1.15 },
-    { period: 'Aug', revenue: routeData.revenue * 1.18, profit: routeData.profit * 1.35, loadFactor: routeData.loadFactor * 1.1 },
-    { period: 'Sep', revenue: routeData.revenue * 1.05, profit: routeData.profit * 1.1, loadFactor: routeData.loadFactor * 1.02 },
-    { period: 'Oct', revenue: routeData.revenue * 0.98, profit: routeData.profit * 0.95, loadFactor: routeData.loadFactor * 0.98 },
-    { period: 'Nov', revenue: routeData.revenue * 0.92, profit: routeData.profit * 0.85, loadFactor: routeData.loadFactor * 0.95 },
-    { period: 'Dec', revenue: routeData.revenue, profit: routeData.profit, loadFactor: routeData.loadFactor }
-  ]
+  // Generate trend data based on time period
+  const getTrendData = (data: any, period: string) => {
+    if (period === 'last_month') {
+      // Daily data for last month
+      return Array.from({ length: 30 }, (_, i) => ({
+        period: `Day ${i + 1}`,
+        revenue: data.revenue * (0.8 + Math.random() * 0.4),
+        profit: data.profit * (0.7 + Math.random() * 0.6),
+        loadFactor: Math.max(30, Math.min(95, data.loadFactor * (0.8 + Math.random() * 0.4)))
+      }))
+    } else if (period === 'last_quarter') {
+      // Weekly data for last quarter
+      return Array.from({ length: 12 }, (_, i) => ({
+        period: `Week ${i + 1}`,
+        revenue: data.revenue * (0.85 + Math.random() * 0.3),
+        profit: data.profit * (0.8 + Math.random() * 0.4),
+        loadFactor: Math.max(30, Math.min(95, data.loadFactor * (0.85 + Math.random() * 0.3)))
+      }))
+    } else if (period === 'ytd') {
+      // Monthly data for YTD (9 months)
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep']
+      return months.map((month, i) => ({
+        period: month,
+        revenue: data.revenue * (0.8 + (i / 9) * 0.4 + Math.random() * 0.2),
+        profit: data.profit * (0.7 + (i / 9) * 0.6 + Math.random() * 0.2),
+        loadFactor: Math.max(30, Math.min(95, data.loadFactor * (0.85 + Math.random() * 0.3)))
+      }))
+    } else {
+      // Monthly data for full year
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+      return months.map((month, i) => ({
+        period: month,
+        revenue: data.revenue * (0.85 + Math.sin((i / 12) * Math.PI * 2) * 0.2 + Math.random() * 0.1),
+        profit: data.profit * (0.7 + Math.sin((i / 12) * Math.PI * 2) * 0.4 + Math.random() * 0.1),
+        loadFactor: Math.max(30, Math.min(95, data.loadFactor * (0.9 + Math.sin((i / 12) * Math.PI * 2) * 0.15)))
+      }))
+    }
+  }
+
+  const trendData = getTrendData(routeData, timeRange)
 
   // YoY comparison data
   const yoyData = [
@@ -131,26 +182,26 @@ export default function DescriptiveAnalytics({ selectedRoute, timeRange, onTimeR
       </div>
 
       {/* Main Chart */}
-      <div className="metric-card">
+        <div className="metric-card">
         <h3 className="text-xl font-semibold text-white mb-6 text-center">12-Month Performance Trend</h3>
         <ResponsiveContainer width="100%" height={400}>
-          <LineChart data={trendData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-            <XAxis dataKey="period" stroke="#94a3b8" />
-            <YAxis stroke="#94a3b8" tickFormatter={(value) => `$${value/1000000}M`} />
-            <Tooltip 
-              formatter={(value, name) => [
+            <LineChart data={trendData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+              <XAxis dataKey="period" stroke="#94a3b8" />
+              <YAxis stroke="#94a3b8" tickFormatter={(value) => `$${value/1000000}M`} />
+              <Tooltip 
+                formatter={(value, name) => [
                 formatCurrency(value as number),
-                name === 'revenue' ? 'Revenue' : 'Profit'
-              ]}
-              labelStyle={{ color: '#f1f5f9' }}
-              contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}
-            />
+                  name === 'revenue' ? 'Revenue' : 'Profit'
+                ]}
+                labelStyle={{ color: '#f1f5f9' }}
+                contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}
+              />
             <Line type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={3} name="revenue" />
             <Line type="monotone" dataKey="profit" stroke="#10b981" strokeWidth={3} name="profit" />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
 
       {/* Simple Summary */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-lg p-8">
@@ -159,10 +210,10 @@ export default function DescriptiveAnalytics({ selectedRoute, timeRange, onTimeR
           <div>
             <div className="text-4xl font-bold text-white mb-2">
               {routeData.profit > 0 ? '✅' : '❌'}
-            </div>
+          </div>
             <div className="text-xl font-semibold text-white">
               {routeData.profit > 0 ? 'PROFITABLE' : 'LOSS MAKING'}
-            </div>
+                </div>
             <p className="text-blue-100 mt-2">Current Status</p>
           </div>
           <div>
